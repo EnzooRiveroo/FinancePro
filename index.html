@@ -100,9 +100,11 @@
         <div class="flex flex-col lg:flex-row gap-8">
             <div class="w-full lg:w-1/3">
                 <div class="glass-card p-6 rounded-3xl lg:sticky lg:top-24">
-                    <h2 class="text-lg font-bold mb-5 flex items-center gap-2 text-emerald-400"><i
-                            class="fas fa-plus-circle"></i> Nuevo Registro</h2>
+                    <h2 class="text-lg font-bold mb-5 flex items-center gap-2 text-emerald-400">
+                        <i class="fas fa-plus-circle"></i> <span id="formTitle">Nuevo Registro</span>
+                    </h2>
                     <form id="loanForm" class="space-y-4">
+                        <input type="hidden" id="editId">
                         <div class="grid grid-cols-2 gap-3">
                             <input type="text" id="nombre" required placeholder="Nombre"
                                 class="w-full bg-black/40 border border-white/10 rounded-xl p-3 text-sm focus:border-emerald-500 outline-none">
@@ -111,17 +113,30 @@
                         </div>
                         <input type="tel" id="telefono" required placeholder="WhatsApp (Ej: 549...)"
                             class="w-full bg-black/40 border border-white/10 rounded-xl p-3 text-sm focus:border-emerald-500 outline-none">
-                        <input type="number" id="montoTotal" required placeholder="Monto Total ($)"
-                            class="w-full bg-black/40 border border-white/10 rounded-xl p-3 text-sm focus:border-emerald-500 outline-none">
-                        <div class="grid grid-cols-2 gap-3">
-                            <select id="cuotas"
-                                class="bg-black/40 border border-white/10 rounded-xl p-3 text-sm focus:border-emerald-500 outline-none cursor-pointer"></select>
-                            <input type="date" id="fechaInicio" required
-                                class="bg-black/40 border border-white/10 rounded-xl p-3 text-sm focus:border-emerald-500 outline-none">
+                        
+                        <!-- Nueva Sección: Descripción -->
+                        <textarea id="descripcion" placeholder="Descripción / Notas del cliente (Opcional)" rows="2"
+                            class="w-full bg-black/40 border border-white/10 rounded-xl p-3 text-sm focus:border-emerald-500 outline-none resize-none"></textarea>
+
+                        <div id="financialInputs">
+                            <input type="number" id="montoTotal" placeholder="Monto Total ($)"
+                                class="w-full bg-black/40 border border-white/10 rounded-xl p-3 text-sm focus:border-emerald-500 outline-none mb-4">
+                            <div class="grid grid-cols-2 gap-3">
+                                <select id="cuotas"
+                                    class="bg-black/40 border border-white/10 rounded-xl p-3 text-sm focus:border-emerald-500 outline-none cursor-pointer"></select>
+                                <input type="date" id="fechaInicio"
+                                    class="bg-black/40 border border-white/10 rounded-xl p-3 text-sm focus:border-emerald-500 outline-none">
+                            </div>
                         </div>
-                        <button type="submit"
+
+                        <button type="submit" id="submitBtn"
                             class="btn-emitir w-full py-4 rounded-2xl font-black text-xs tracking-widest mt-2 flex items-center justify-center gap-2 uppercase">
                             <i class="fas fa-bolt"></i> Emitir Crédito
+                        </button>
+                        
+                        <button type="button" id="cancelEdit" onclick="cancelarEdicion()"
+                            class="hidden w-full py-3 rounded-2xl font-bold text-[10px] text-gray-500 border border-white/10 uppercase tracking-widest hover:bg-white/5">
+                            Cancelar Edición
                         </button>
                     </form>
                 </div>
@@ -148,11 +163,10 @@
                 prestamos = JSON.parse(datosGuardados);
                 renderLoans();
             }
-            // Establecer fecha de hoy por defecto en el input
             document.getElementById('fechaInicio').valueAsDate = new Date();
         };
 
-        // 2. FUNCIÓN PARA GUARDAR (Llamar cada vez que algo cambie)
+        // 2. FUNCIÓN PARA GUARDAR
         function guardarEnStorage() {
             localStorage.setItem('financePro_datos', JSON.stringify(prestamos));
         }
@@ -176,8 +190,38 @@
                 confetti({ particleCount: 150, spread: 70, origin: { y: 0.6 }, colors: ['#10b981', '#ffffff'] });
             }
 
-            guardarEnStorage(); // <--- Guardamos el cambio de estado
+            guardarEnStorage();
             renderLoans();
+        }
+
+        // FUNCIONALIDAD DE EDICIÓN
+        function editarCliente(id) {
+            const p = prestamos.find(x => x.id === id);
+            if (!p) return;
+
+            document.getElementById('editId').value = p.id;
+            document.getElementById('nombre').value = p.nombre;
+            document.getElementById('apellido').value = p.apellido;
+            document.getElementById('telefono').value = p.telefono;
+            document.getElementById('descripcion').value = p.descripcion || '';
+            
+            // Ocultar campos financieros para prevenir errores de cálculo de cuotas ya emitidas
+            document.getElementById('financialInputs').classList.add('hidden');
+            document.getElementById('formTitle').innerText = "Editar Cliente";
+            document.getElementById('submitBtn').innerHTML = '<i class="fas fa-save"></i> Guardar Cambios';
+            document.getElementById('cancelEdit').classList.remove('hidden');
+            
+            window.scrollTo({ top: 0, behavior: 'smooth' });
+        }
+
+        function cancelarEdicion() {
+            document.getElementById('loanForm').reset();
+            document.getElementById('editId').value = '';
+            document.getElementById('financialInputs').classList.remove('hidden');
+            document.getElementById('formTitle').innerText = "Nuevo Registro";
+            document.getElementById('submitBtn').innerHTML = '<i class="fas fa-bolt"></i> Emitir Crédito';
+            document.getElementById('cancelEdit').classList.add('hidden');
+            document.getElementById('fechaInicio').valueAsDate = new Date();
         }
 
         function renderLoans() {
@@ -209,13 +253,25 @@
                         <div class="w-11 h-11 bg-emerald-500/10 rounded-2xl flex items-center justify-center text-emerald-500 font-bold border border-emerald-500/20">${p.nombre[0]}</div>
                         <div>
                             <h4 class="font-bold text-base leading-tight">${p.nombre} ${p.apellido}</h4>
-                            <a href="https://wa.me/${cleanPhone}" target="_blank" class="text-[10px] text-emerald-500 font-bold tracking-tighter hover:text-emerald-300 flex items-center gap-1 mt-1">
-                                <i class="fab fa-whatsapp"></i> ENVIAR MENSAJE
-                            </a>
+                            <div class="flex gap-3 mt-1">
+                                <a href="https://wa.me/${cleanPhone}" target="_blank" class="text-[10px] text-emerald-500 font-bold tracking-tighter hover:text-emerald-300 flex items-center gap-1">
+                                    <i class="fab fa-whatsapp text-xs"></i> WHATSAPP
+                                </a>
+                                <button onclick="editarCliente(${p.id})" class="text-[10px] text-gray-400 font-bold tracking-tighter hover:text-white flex items-center gap-1">
+                                    <i class="fas fa-edit"></i> EDITAR
+                                </button>
+                            </div>
                         </div>
                     </div>
                     <button onclick="eliminar(${p.id})" class="text-gray-700 hover:text-red-500 transition-colors"><i class="fas fa-times-circle text-lg"></i></button>
                 </div>
+
+                ${p.descripcion ? `
+                    <div class="mb-4 bg-white/5 p-3 rounded-xl border border-white/5">
+                        <p class="text-[10px] text-gray-500 font-bold uppercase mb-1 flex items-center gap-1"><i class="fas fa-sticky-note text-[8px]"></i> Notas</p>
+                        <p class="text-xs text-gray-300 leading-relaxed">${p.descripcion}</p>
+                    </div>
+                ` : ''}
 
                 <div class="grid grid-cols-2 gap-4 mb-4">
                     <div class="bg-black/20 p-3 rounded-2xl border border-white/5">
@@ -260,38 +316,61 @@
         function eliminar(id) {
             if (confirm('¿Eliminar registro?')) {
                 prestamos = prestamos.filter(p => p.id !== id);
-                guardarEnStorage(); // <--- Guardamos después de eliminar
+                guardarEnStorage();
                 renderLoans();
             }
         }
 
         document.getElementById('loanForm').addEventListener('submit', (e) => {
             e.preventDefault();
-            const monto = parseFloat(document.getElementById('montoTotal').value);
-            const num = parseInt(document.getElementById('cuotas').value);
-            const fecha = document.getElementById('fechaInicio').value;
-            const plan = [];
-            for (let i = 1; i <= num; i++) {
-                let f = new Date(fecha + "T00:00:00");
-                f.setMonth(f.getMonth() + (i - 1));
-                plan.push({ numero: i, monto: monto / num, fecha: f.toISOString().split('T')[0], pagada: false });
-            }
-            prestamos.unshift({
-                id: Date.now(),
-                nombre: document.getElementById('nombre').value,
-                apellido: document.getElementById('apellido').value,
-                telefono: document.getElementById('telefono').value,
-                monto,
-                cuotas: num,
-                planDePago: plan
-            });
+            const editId = document.getElementById('editId').value;
 
-            guardarEnStorage(); // <--- Guardamos el nuevo préstamo
-            e.target.reset();
-            document.getElementById('fechaInicio').valueAsDate = new Date();
+            if (editId) {
+                // MODO EDICIÓN
+                const index = prestamos.findIndex(p => p.id == editId);
+                if (index !== -1) {
+                    prestamos[index].nombre = document.getElementById('nombre').value;
+                    prestamos[index].apellido = document.getElementById('apellido').value;
+                    prestamos[index].telefono = document.getElementById('telefono').value;
+                    prestamos[index].descripcion = document.getElementById('descripcion').value;
+                }
+                cancelarEdicion();
+            } else {
+                // MODO NUEVO CRÉDITO
+                const monto = parseFloat(document.getElementById('montoTotal').value);
+                const num = parseInt(document.getElementById('cuotas').value);
+                const fecha = document.getElementById('fechaInicio').value;
+                const desc = document.getElementById('descripcion').value;
+                
+                if(!monto || isNaN(monto)) return;
+
+                const plan = [];
+                for (let i = 1; i <= num; i++) {
+                    let f = new Date(fecha + "T00:00:00");
+                    f.setMonth(f.getMonth() + (i - 1));
+                    plan.push({ numero: i, monto: monto / num, fecha: f.toISOString().split('T')[0], pagada: false });
+                }
+                
+                prestamos.unshift({
+                    id: Date.now(),
+                    nombre: document.getElementById('nombre').value,
+                    apellido: document.getElementById('apellido').value,
+                    telefono: document.getElementById('telefono').value,
+                    descripcion: desc,
+                    monto,
+                    cuotas: num,
+                    planDePago: plan
+                });
+                
+                e.target.reset();
+                document.getElementById('fechaInicio').valueAsDate = new Date();
+            }
+
+            guardarEnStorage();
             renderLoans();
         });
     </script>
 </body>
 
 </html>
+
