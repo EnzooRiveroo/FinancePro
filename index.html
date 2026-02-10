@@ -143,6 +143,13 @@
             </div>
 
             <div class="w-full lg:w-2/3">
+                <!-- BARRA DE BÚSQUEDA AGREGADA -->
+                <div class="mb-6 relative">
+                    <i class="fas fa-search absolute left-4 top-1/2 -translate-y-1/2 text-gray-500 text-sm"></i>
+                    <input type="text" id="searchInput" onkeyup="renderLoans()" placeholder="Buscar por nombre o apellido..." 
+                        class="w-full bg-[#141414] border border-white/10 rounded-2xl p-4 pl-12 text-sm focus:border-emerald-500 outline-none transition-all placeholder:text-gray-600">
+                </div>
+
                 <div id="loansContainer" class="space-y-6">
                     <div class="text-center py-20 opacity-20 border-2 border-dashed border-white/10 rounded-3xl">
                         <i class="fas fa-receipt text-5xl mb-3"></i>
@@ -226,6 +233,7 @@
 
         function renderLoans() {
             const container = document.getElementById('loansContainer');
+            const term = document.getElementById('searchInput').value.toLowerCase(); // Captura término de búsqueda
             let totalCobradoGlobal = 0;
 
             if (prestamos.length === 0) {
@@ -234,82 +242,95 @@
                 return;
             }
 
-            container.innerHTML = prestamos.map(p => {
-                const pagado = p.planDePago.filter(c => c.pagada).reduce((acc, curr) => acc + curr.monto, 0);
-                const pendiente = p.monto - pagado;
-                const porcentaje = (pagado / p.monto) * 100;
-                const esFinalizado = pendiente === 0;
-                const cleanPhone = p.telefono.replace(/\D/g, '');
+            // Filtrar préstamos basados en la búsqueda
+            const filtered = prestamos.filter(p => {
+                const nombreCompleto = `${p.nombre} ${p.apellido}`.toLowerCase();
+                return nombreCompleto.includes(term);
+            });
 
-                totalCobradoGlobal += pagado;
-
-                return `
-        <div class="glass-card rounded-3xl overflow-hidden mb-6 relative">
-            ${esFinalizado ? '<div class="absolute top-4 right-12 bg-emerald-500 text-black font-black text-[10px] px-3 py-1 rounded-full z-10 shadow-lg shadow-emerald-500/20">FINALIZADO</div>' : ''}
-            
-            <div class="p-5 border-b border-white/5 bg-white/[0.01]">
-                <div class="flex justify-between items-start mb-4">
-                    <div class="flex items-center gap-3">
-                        <div class="w-11 h-11 bg-emerald-500/10 rounded-2xl flex items-center justify-center text-emerald-500 font-bold border border-emerald-500/20">${p.nombre[0]}</div>
-                        <div>
-                            <h4 class="font-bold text-base leading-tight">${p.nombre} ${p.apellido}</h4>
-                            <div class="flex gap-3 mt-1">
-                                <a href="https://wa.me/${cleanPhone}" target="_blank" class="text-[10px] text-emerald-500 font-bold tracking-tighter hover:text-emerald-300 flex items-center gap-1">
-                                    <i class="fab fa-whatsapp text-xs"></i> WHATSAPP
-                                </a>
-                                <button onclick="editarCliente(${p.id})" class="text-[10px] text-gray-400 font-bold tracking-tighter hover:text-white flex items-center gap-1">
-                                    <i class="fas fa-edit"></i> EDITAR
-                                </button>
-                            </div>
-                        </div>
-                    </div>
-                    <button onclick="eliminar(${p.id})" class="text-gray-700 hover:text-red-500 transition-colors"><i class="fas fa-times-circle text-lg"></i></button>
-                </div>
-
-                ${p.descripcion ? `
-                    <div class="mb-4 bg-white/5 p-3 rounded-xl border border-white/5">
-                        <p class="text-[10px] text-gray-500 font-bold uppercase mb-1 flex items-center gap-1"><i class="fas fa-sticky-note text-[8px]"></i> Notas</p>
-                        <p class="text-xs text-gray-300 leading-relaxed">${p.descripcion}</p>
-                    </div>
-                ` : ''}
-
-                <div class="grid grid-cols-2 gap-4 mb-4">
-                    <div class="bg-black/20 p-3 rounded-2xl border border-white/5">
-                        <p class="text-[9px] text-gray-500 font-bold uppercase mb-1">Monto Inicial</p>
-                        <p class="text-white font-medium text-sm line-through opacity-40">${formatCurrency(p.monto)}</p>
-                    </div>
-                    <div class="bg-emerald-500/5 p-3 rounded-2xl border border-emerald-500/10">
-                        <p class="text-[9px] text-emerald-500/70 font-bold uppercase mb-1">Saldo Restante</p>
-                        <p class="text-emerald-400 font-bold text-lg">${formatCurrency(pendiente)}</p>
-                    </div>
-                </div>
-
-                <div class="w-full bg-white/5 h-1.5 rounded-full overflow-hidden">
-                    <div class="bg-emerald-500 h-full transition-all duration-700" style="width: ${porcentaje}%"></div>
-                </div>
-            </div>
-
-            <div class="p-4 cuotas-grid">
-                ${p.planDePago.map(c => {
-                    const hoy = new Date(); hoy.setHours(0, 0, 0, 0);
-                    const vence = new Date(c.fecha + "T00:00:00");
-                    const esV = vence < hoy && !c.pagada;
-                    const estado = c.pagada ? 'estado-pagado' : (esV ? 'estado-vencido' : 'estado-pendiente');
+            if (filtered.length === 0) {
+                container.innerHTML = `<div class="text-center py-20 opacity-40"><p class="text-sm">No se encontraron clientes que coincidan con "${term}"</p></div>`;
+            } else {
+                container.innerHTML = filtered.map(p => {
+                    const pagado = p.planDePago.filter(c => c.pagada).reduce((acc, curr) => acc + curr.monto, 0);
+                    const pendiente = p.monto - pagado;
+                    const porcentaje = (pagado / p.monto) * 100;
+                    const esFinalizado = pendiente === 0;
+                    const cleanPhone = p.telefono.replace(/\D/g, '');
 
                     return `
-                    <div onclick="togglePago(${p.id}, ${c.numero})" class="p-3 rounded-2xl border cursor-pointer transition-all active:scale-95 ${estado}">
-                        <div class="flex justify-between items-center mb-1">
-                            <span class="text-[8px] font-bold text-gray-500 uppercase">Cuota ${c.numero}</span>
-                            <i class="fas ${c.pagada ? 'fa-check-circle' : 'fa-circle'} text-[8px]"></i>
+            <div class="glass-card rounded-3xl overflow-hidden mb-6 relative">
+                ${esFinalizado ? '<div class="absolute top-4 right-12 bg-emerald-500 text-black font-black text-[10px] px-3 py-1 rounded-full z-10 shadow-lg shadow-emerald-500/20">FINALIZADO</div>' : ''}
+                
+                <div class="p-5 border-b border-white/5 bg-white/[0.01]">
+                    <div class="flex justify-between items-start mb-4">
+                        <div class="flex items-center gap-3">
+                            <div class="w-11 h-11 bg-emerald-500/10 rounded-2xl flex items-center justify-center text-emerald-500 font-bold border border-emerald-500/20">${p.nombre[0]}</div>
+                            <div>
+                                <h4 class="font-bold text-base leading-tight">${p.nombre} ${p.apellido}</h4>
+                                <div class="flex gap-3 mt-1">
+                                    <a href="https://wa.me/${cleanPhone}" target="_blank" class="text-[10px] text-emerald-500 font-bold tracking-tighter hover:text-emerald-300 flex items-center gap-1">
+                                        <i class="fab fa-whatsapp text-xs"></i> WHATSAPP
+                                    </a>
+                                    <button onclick="editarCliente(${p.id})" class="text-[10px] text-gray-400 font-bold tracking-tighter hover:text-white flex items-center gap-1">
+                                        <i class="fas fa-edit"></i> EDITAR
+                                    </button>
+                                </div>
+                            </div>
                         </div>
-                        <p class="font-bold text-xs ${c.pagada ? 'text-emerald-500' : (esV ? 'text-red-500' : 'text-amber-500')}">${formatCurrency(c.monto)}</p>
-                        <p class="text-[8px] text-gray-500 mt-1 font-medium">${vence.toLocaleDateString()}</p>
-                    </div>`;
-                }).join('')}
-            </div>
-        </div>`;
-            }).join('');
+                        <button onclick="eliminar(${p.id})" class="text-gray-700 hover:text-red-500 transition-colors"><i class="fas fa-times-circle text-lg"></i></button>
+                    </div>
 
+                    ${p.descripcion ? `
+                        <div class="mb-4 bg-white/5 p-3 rounded-xl border border-white/5">
+                            <p class="text-[10px] text-gray-500 font-bold uppercase mb-1 flex items-center gap-1"><i class="fas fa-sticky-note text-[8px]"></i> Notas</p>
+                            <p class="text-xs text-gray-300 leading-relaxed">${p.descripcion}</p>
+                        </div>
+                    ` : ''}
+
+                    <div class="grid grid-cols-2 gap-4 mb-4">
+                        <div class="bg-black/20 p-3 rounded-2xl border border-white/5">
+                            <p class="text-[9px] text-gray-500 font-bold uppercase mb-1">Monto Inicial</p>
+                            <p class="text-white font-medium text-sm line-through opacity-40">${formatCurrency(p.monto)}</p>
+                        </div>
+                        <div class="bg-emerald-500/5 p-3 rounded-2xl border border-emerald-500/10">
+                            <p class="text-[9px] text-emerald-500/70 font-bold uppercase mb-1">Saldo Restante</p>
+                            <p class="text-emerald-400 font-bold text-lg">${formatCurrency(pendiente)}</p>
+                        </div>
+                    </div>
+
+                    <div class="w-full bg-white/5 h-1.5 rounded-full overflow-hidden">
+                        <div class="bg-emerald-500 h-full transition-all duration-700" style="width: ${porcentaje}%"></div>
+                    </div>
+                </div>
+
+                <div class="p-4 cuotas-grid">
+                    ${p.planDePago.map(c => {
+                        const hoy = new Date(); hoy.setHours(0, 0, 0, 0);
+                        const vence = new Date(c.fecha + "T00:00:00");
+                        const esV = vence < hoy && !c.pagada;
+                        const estado = c.pagada ? 'estado-pagado' : (esV ? 'estado-vencido' : 'estado-pendiente');
+
+                        return `
+                        <div onclick="togglePago(${p.id}, ${c.numero})" class="p-3 rounded-2xl border cursor-pointer transition-all active:scale-95 ${estado}">
+                            <div class="flex justify-between items-center mb-1">
+                                <span class="text-[8px] font-bold text-gray-500 uppercase">Cuota ${c.numero}</span>
+                                <i class="fas ${c.pagada ? 'fa-check-circle' : 'fa-circle'} text-[8px]"></i>
+                            </div>
+                            <p class="font-bold text-xs ${c.pagada ? 'text-emerald-500' : (esV ? 'text-red-500' : 'text-amber-500')}">${formatCurrency(c.monto)}</p>
+                            <p class="text-[8px] text-gray-500 mt-1 font-medium">${vence.toLocaleDateString()}</p>
+                        </div>`;
+                    }).join('')}
+                </div>
+            </div>`;
+                }).join('');
+            }
+
+            // El total cobrado global se calcula siempre sobre la lista completa de préstamos, no solo los filtrados
+            totalCobradoGlobal = prestamos.reduce((acc, p) => {
+                return acc + p.planDePago.filter(c => c.pagada).reduce((acc2, c) => acc2 + c.monto, 0);
+            }, 0);
+            
             document.getElementById('recaudacion-total').innerText = `Cobrado: ${formatCurrency(totalCobradoGlobal)}`;
         }
 
